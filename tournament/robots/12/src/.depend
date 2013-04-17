@@ -1,0 +1,12 @@
+alphabeta.cmo: eval.cmo getopt.cmo pousse.cmo timeout.cmo 
+alphabeta.cmx: eval.cmx getopt.cmx pousse.cmx timeout.cmx 
+driver.cmo: alphabeta.cmo misc.cmo pousse.cmo printer.cmo timeout.cmo 
+driver.cmx: alphabeta.cmx misc.cmx pousse.cmx printer.cmx timeout.cmx 
+eval.cmo: pousse.cmo 
+eval.cmx: pousse.cmx 
+main.cmo: alphabeta.cmo getopt.cmo pousse.cmo printer.cmo timeout.cmo 
+main.cmx: alphabeta.cmx getopt.cmx pousse.cmx printer.cmx timeout.cmx 
+pousse.cmo: misc.cmo 
+pousse.cmx: misc.cmx 
+printer.cmo: pousse.cmo 
+printer.cmx: pousse.cmx 

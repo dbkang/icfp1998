@@ -1,0 +1,38 @@
+Ben Jackson
+ben@ben.com
+
+My entry is a fairly simple C program that does an alpha/beta pruned
+minmax search for the best move.  It repeatedly searches deeper and
+deeper trees until it runs out of time.  The evaluation function is
+dominated by winning/losing, and for indeterminate boards it assigns a
+small numeric "goodness" value which is based on everything I've learned
+about Pousse in the last 2 days (not much!).  It incorporates a number
+of half-baked ideas I had for making it go faster.  I haven't ripped
+them out because I've lost track of which ones matter.
+
+It uses plain vanilla UNIX constructs to achieve a static partitioning
+of the move space:  it forks 4 times and each child tries the moves on
+one side of the board.  The parent (which sleeps most of the time) reads
+the move/score output of the children and picks the best one.  The
+iterative deepening algorithm is terminated by a 28 second alarm.  The
+program will *never* run for more than 30 seconds (even when it knows
+it has lost -- the other program might be buggy!).  It will occasionally
+stop sooner if is has used more than half its time on the previous
+searches (assuming that the next one would never finish).  Depending on
+the chosen contest dimensions, it may end up wasting more CPU than it
+uses...
+
+I don't plan to win any Judges prizes because this is one ugly bit of
+code.  If this were a real application this version would be the prototype!
+
+If I win it will be because:
+
+	1.  My parallel C program runs faster (and sees the endgame
+	    sooner), or
+	2.  My board evaluation routine is really great (not likely).
+
+If I come in first I will also buy the second place finisher a copy of
+K&R2.  Even autographed (ok, ok, by me) if you want!
+
+Thanks to:  Doug Orleans, who kibitzed and playtested, and Sequent Computer
+Systems, whose 32 ppro machine was my test platform.

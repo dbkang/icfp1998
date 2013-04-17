@@ -1,0 +1,15 @@
+Well, since I don't have a Linux box and I don't intend to get
+one I'll have to make do with the standard Linux programs.
+Since cc is one of them I wrote my program in C.  No tricks, just
+standard alpha-beta search and a rather stupid evaluation function.
+It doesn't even use parallel processing since a Saturday afternoon
+was all I had to spend on this program.
+
+The first time `runme' is used for a particular board size it
+will compile a program for that board size.  Subesequent uses
+involve no compilation.  The reason for having a special program
+for each board size is that you can produce better code when
+the bounds on the arrays used for representing the state of the
+game are known.
+
+	Lennart Augustsson

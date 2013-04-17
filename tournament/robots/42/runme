@@ -1,0 +1,9 @@
+#! /bin/sh -
+read size
+if [ ! -x support/pousse$size ]; then
+	cc -DBSIZE=$size -static -fomit-frame-pointer -O3 -Wall src/pousse.c -o support/pousse$size > /dev/null 2>&1
+	t=15
+else
+	t=28
+fi
+support/pousse$size $t

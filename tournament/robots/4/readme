@@ -1,0 +1,48 @@
+ICFP Programming Contest Entry, August 1998
+Copyright (c) 1998 by Andrew W. Appel
+
+Implementation language:  C
+Compiler: gcc 2.8.1
+Team Members:  Andrew W. Appel, appel@princeton.edu
+
+HOW IT WORKS:
+
+Alpha-beta search.
+
+Representation of boards is completely boring:
+  For each player, N-word array of N-bit (or larger) words.
+
+No incremental computation of evaluation function.
+
+Hash table to keep previous (nonrepeatable) positions.
+Board is copied to and from the previous position stack.
+
+Discarding of equivalent moves, i.e. in this situation
+  ? ? ? X ? .
+  ? ? ? X ? ?  the move T4 is discarded because it does the same as L3
+  X X X . ? ?
+  ? ? ? ? ? ?  Similarly, T6 is discarded because it's same as R1, etc.
+  ? ? ? ? ? ?  
+  ? ? ? ? ? ?
+
+Iterative deepening, with reordering of which moves to try first
+ based on previous iteration.
+
+Timer signal to choose best move seen so far on deepest level.
+
+Any move that increases the number of pieces on the board ends up with
+a board that hasn't been seen before.  If the remaining search depth >
+1 (adjustable parameter), this board goes into a memo-table with its
+evaluation at given depth.  This memo-table can cut off the search.
+
+Three specialized versions of program:  8-bit, 16-bit, 20-bit.
+The 8-bit program is run by default; if N is too big, it forks
+and execs one of the others.
+
+Parallel version forks 4 subprocesses, each of which considers
+a different subset of the 1st-level moves, and recommends one
+move with its evaluation.  This works, and can be enabled by
+-DPARALLEL in the CFLAGS, but I haven't found that it noticeably
+improves the scores, so I disabled it.
+
+What special prize do I win for using an obsolete programming language?

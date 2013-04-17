@@ -1,0 +1,4 @@
+This version uses a table to memoize the static evaluation scores.
+
+Bradley C. Kuszmaul
+bradley@ee.yale.edu

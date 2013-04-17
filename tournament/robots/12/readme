@@ -1,0 +1,116 @@
+   CamlPousse version 1.0
+   ======================
+
+Authors
+=======
+
+  Éric BRUNET (Eric.Brunet@ens.fr)
+  Dominique QUATRAVAUX (Dominique.Quatravaux@ens.fr)
+  Jérôme VOUILLON (Jerome.Vouillon@ens.fr)
+
+  (alphabetical order makes him last, but no doubt he deserves the
+first place in terms of coding power ! Dom)
+
+Additional support
+==================
+
+  François-René RIDEAU (Francois-Rene.Rideau@ens.fr)
+
+
+General description
+===================
+
+  CamlPousse is an implementation of the "Pousse" game, the topic of
+the 1998 ICFP programming contest. The rules of the game and those of
+the contest are explained at the following URL :
+
+http://www.ai.mit.edu/extra/icfp-contest/
+
+  The programming language we use is Objective Caml version 2.0, a
+publicly available implementation of the ML language featuring 
+automatic type inference, functionality and object-orientation,
+a top-level system providing a type-in/execute/display loop and
+a powerful native code compiler for many architectures. The Objective
+Caml language is developed in France at the INRIA (Institut National
+de Recherche en Informatique et Automatique), and its home page
+can be reached at
+
+http://pauillac.inria.fr/ocaml/
+
+Algorithm
+=========
+  We use a very classical alpha-beta pruning algorithm which
+calculates the best combination of moves with respect to an evaluation
+function given as a parameter : the role of the  alpha-beta algorithm
+is to compute the tactical path that optimizes the value of this
+function after a given number of moves, assuming that the opponent
+defends to its best (according to this same function). The depth
+searched by the algorithm is not constant, and the program tries to go
+at the deepest possible level during the alloted time. So far, it does
+not use any persistent information.
+
+  Here are a few tricks used to speed things up :
+  * The "best" moves starting from a given configuration are kept in 
+a hash table and tried first in the alpha-beta algorithm. During the
+search, the first thing we do is to look up the current situation in
+the hash table. We don't blindly trust the result given by the hash
+table (there may be collisions, or the move can be the « best » one
+only for a reduced depth) but we try it first : in the case of a
+hit, this helps to quickly cut down important parts of the search
+tree.
+  * The subsystem that stores the set of already reached states
+(a must-go because of the no-repeat rule) uses a fast balanced
+binary-tree algorithm, which is part of the standard library of
+Objective Caml.
+  * No memory-intensive computation is attempted, the goal is to reach
+the deepest possible analysis so we'd better keep it simple.
+
+Time management and parallelism
+===============================
+  The computation uses a client-server mechanism to take advantage of
+the SMP machine that will run the contestant programs. The principle
+is quite simple : a server program distributes jobs to four clients
+that are forked off when `runme' starts up. Each job consists in
+exploring the subtree of situations that occur after some given 
+first move at some given depth. The server distributes jobs so as to
+complete the evaluation of the current depth, and when it is over it
+starts again after increasing the required depth by 1.
+
+  The server process, which does not make any intensive computations,
+is also responsible for keeping track of the best move so far, of
+moves that unavoidably lead to the loss of the game (and so need not be
+computed further), and do the time management. The latter consists in a
+signal scheduled through alarm() that causes the server to display the
+best-move-so-far and shut down the four clients when received.
+
+  Note : with such a description, one could believe that our signal
+handling policy is not sound. What if the timer signal occurs during
+the update of the best-move-so-far, or even worse and more likely,
+during a garbage collection ? Fortunately, OCaml provides a mechanism
+to handle this : when the signal arrives, the runtime system merely
+sets a flag that will cause the next memory allocation to raise an
+exception at a `safe' point. So nifty !
+
+Usage
+=====
+  As specified in the contest rules, just type ./runme. Here are a few
+additional command-line options you can use outside of the contest :
+
+ --debug-eval displays the board upon typing each move of the initial
+sequence, along with the evaluation of the current situations (and
+some details of the intermediate values of this computation, whose
+meaning you can look up in src/eval.ml)
+ --debug-algo shows a progress indicator while the program thinks.
+ --interactive allows a human to play against the computer (no fancy
+X11 interface yet). The program still expects to read the moves on
+stdin but it computes the best move each time, so for example you
+could play _your_ move whenever it's up to X.
+ --max-time and --max-depth are self-explanatory and can be used to
+play quicker games.
+
+Bugs
+====
+  There is no fancy object-oriented CamlTK GUI (alas)
+  The program does not resign even if it computes that it will lose within
+6 moves :-)
+
