@@ -1,0 +1,793 @@
+#!/usr/bin/mred -fmv-
+
+;; This is the source code for the Pousse GUI implemented in MrEd, the
+;; graphical Scheme from Rice PLT.
+;;  - Matthew
+
+;; Click the "Help" button for information on using the GUI
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(require (lib "class.ss"))
+
+; Load the basic board library (also used by a pousse player program):
+(load-relative "utils.ss")
+
+;; Graphical size of a cell in pixels
+(define cell-size 40)
+
+;; x/o font size (points)
+(define font-size 24)
+
+;; Automated players
+(define x-player #f)
+(define o-player #f)
+
+;; Print game moves at the end? (diabled: no option in setup dialog)
+(define print-game? #f)
+
+;; Demo mode: never quit
+(define quit-ok? #t)
+ 
+;;; External Configuration ;;;
+
+;; Read entry number->name mapping
+(define robot-names
+  (with-handlers ([void (lambda (exn) null)])
+    (with-input-from-file "tournament/entries.txt"
+      (lambda () (let loop ()
+		   (let ([r (read)])
+		     (if (eof-object? r) null (cons r (loop)))))))))
+(define (robot->name n)
+  (let* ([k (if (string? n) (string->number n) n)]
+	 [v (assoc k robot-names)])
+    (if v (cadr v) n)))
+
+;; Read archived tournament games from a "games" file
+(define-struct game (desc x o winner size ending moves))
+(read-case-sensitive #t)
+(define archived-games
+  (with-handlers ([void (lambda (exn) null)])
+    (with-input-from-file "tournament/games"
+      (lambda ()
+	(let loop ()
+	  (let ([r (read)])
+	    (if (eof-object? r)
+		null
+		(let ([moves (list-ref r 12)])
+		  (cons (make-game 
+			 (format "winner: ~a  ~a ~a" 
+				 (list-ref r 6)
+				 (list-ref r 8)
+				 (car r))
+			 (list-ref r 2)
+			 (list-ref r 4)
+			 (list-ref r 6)
+			 (car moves)
+			 (list-ref r 8)
+			 (map symbol->string (cdr moves)))
+			(loop))))))))))
+
+;; Find all program pousse players
+(define-struct robot (name executable))
+(define robots 
+  (with-handlers ([void (lambda (exn) null)])
+    (map
+     (lambda (f)
+       (make-robot f
+		   (path->complete-path (build-path "tournament/robots" f "runme")
+					(current-load-relative-directory))))
+     (map path->string (directory-list "tournament/robots")))))
+
+;;; Game State ;;;
+
+(define board (new-board n))
+(define history (new-history))
+
+(define current-player x)
+
+(define playing? #f) ; lock out board clicks when running an automated player
+(define review-tournament #f) ; game record => review mode, #f otherwise
+(define auto-play #f) ; number => auto-play tournament games, #f otherwise
+
+(define winner #f)
+(define loser #f)
+
+(define moves null)
+
+;; For moving back and forth in the history:
+(define past-state null)
+(define future-state null)
+
+;;; More Utilities ;;;
+
+(define (get-state) 
+  (list board moves current-player history winner loser))
+
+
+;; The move functions
+(define (mk-push! side side-char)
+  (lambda (i)
+    (set! future-state null)
+    (set! past-state (cons (get-state) past-state))
+    (set! board (push board side i current-player))
+    (set! moves (append moves (list (format "~a~a" side-char (add1 i)))))
+    (set! current-player (other-player current-player))
+    (send clock-timer reset)))
+(define push-left! (mk-push! 'left #\L))
+(define push-right! (mk-push! 'right #\R))
+(define push-top! (mk-push! 'top #\T))
+(define push-bottom! (mk-push! 'bottom #\B))
+
+(define (check-winner)
+  (let ([v (find-winner board)])
+    (when v
+      (set! winner v))))
+
+(define (check-loser)
+  (when (find-board-in-history board history)
+    (set! loser (other-player current-player))))
+
+(define (in-straight? board v i j)
+  (or (andmap (lambda (x) x) 
+	      (n-map n (lambda (j) (eq? (board-cell board i j) v))))
+      (andmap (lambda (x) x)
+	      (n-map n (lambda (i) (eq? (board-cell board i j) v))))))
+
+;; past! and future! rewind or un-rewind the game:
+(define-values (past! future!)
+  (let ([set-past (lambda (x) (set! past-state x))]
+	[set-future (lambda (x) (set! future-state x))])
+    (values
+     (lambda () (time-travel! (lambda () past-state) (lambda () future-state)
+			      set-past set-future))
+     (lambda ()
+       (time-travel! (lambda () future-state) (lambda () past-state)
+		     set-future set-past)
+       (when (and review-tournament (null? future-state))
+	 (send status set-label (game-ending review-tournament)))))))
+
+(define (time-travel! get-src get-dest set-src! set-dest!)
+  ;; If it's a person versus a robot, and it's the person's turn, then
+  ;; skip past the robot's turn. Calcel a running robot. If the game
+  ;; is over because a person lost (by repeating a board position)
+  ;; back up just once.
+  (define skip-robot (and (or x-player o-player) 
+			  ; Robot running?
+			  (not (send canvas kill-robot))
+			  ; Person lost?
+			  (not (and loser
+				    (eq? loser (if x-player o x))))))
+  (set-dest! (cons (get-state) (get-dest)))
+  (when skip-robot
+    (set-dest! (cons (car (get-src)) (get-dest))))
+  (let ([a ((if skip-robot cadr car) (get-src))])
+    (set-src! ((if skip-robot cddr cdr) (get-src)))
+    (set! board (car a))
+    (set! moves (cadr a))
+    (set! current-player (caddr a))
+    (set! history (cadddr a))
+    (set! winner (list-ref a 4))
+    (set! loser (list-ref a 5)))
+  (send canvas on-paint)
+  (send canvas refresh-controls))
+
+;; Used to reset a game (via the "Setup..." dialog)
+(define (init-game size)
+  (set! n size)
+  (set! board (new-board n))
+  (set! history (new-history))
+  (set! past-state null)
+  (set! current-player x)
+  (set! winner #f)
+  (set! loser #f)
+  (set! moves null)
+  (set! future-state null)
+  (set-canvas-size))
+
+;; Restart for regular playing mode
+(define (reset-game size)
+  (set! review-tournament #f)
+  (init-game size)
+  (send canvas on-paint)
+  (send clock-timer reset)
+  (send canvas do-next-action))
+
+;; Restart, first building future-state list from a tournament entry:
+(define (load-game game)
+  (set! review-tournament game)
+  (init-game (game-size game))
+  (set! future-state
+	(let loop ([l (game-moves game)][b (new-board n)][h (new-history)][x? #t][moves null])
+	  (if (null? l)
+	      null
+	      (let ([h (extend-history b h)])
+		(let ([s (car l)])
+		  (let* ([d (char-upcase (string-ref s 0))]
+			 [p (string->number (substring s 1 (string-length s)))]
+			 [new-moves (append moves (list s))]
+			 [new-board (push b
+					  (case d
+					    [(#\T) 'top]
+					    [(#\B) 'bottom]
+					    [(#\L) 'left]
+					    [(#\R) 'right])
+					  (sub1 p)
+					  (if x? x o))])
+		    (cons (list new-board new-moves (if x? o x) h 
+				(find-winner new-board)
+				(and (find-board-in-history new-board history)
+				     (if x? x o)))
+			  (loop (cdr l)
+				new-board
+				h
+				(not x?)
+				new-moves))))))))
+  (when (null? future-state)
+    ;; Game ended at before one move!
+    (send status set-label (game-ending review-tournament)))
+  (send clock show #f)
+  (send canvas on-paint)
+  (send canvas refresh-controls))
+
+(define (play-all)
+  (let loop ([l archived-games][which review-tournament])
+    (cond
+     [(or (not which) (null? l)) (load-game (car l))]
+     [(eq? (car l) which) (loop (cdr l) #f)]
+     [else (loop (cdr l) which)]))
+  (send auto-step-timer start (* 250 auto-play) #t))
+
+(define auto-step-timer
+  (make-object (class timer% ;()
+		 (inherit start)
+		 (override notify)
+                 (define notify (lambda ()
+			    (yield)
+			    (when auto-play
+			      (if (null? future-state)
+				  (play-all)
+				  (future!))
+			      (start (* 250 auto-play) #t))))
+;		 (sequence (super-init)))))
+                 (super-new))))
+
+;;; GUI ;;;
+
+(define red (make-object color% "RED"))
+(define green (make-object color% "GREEN"))
+(define black (make-object color% "BLACK"))
+(define gray (make-object color% "GRAY"))
+
+(define watch-cursor (make-object cursor% 'watch))
+
+; The canvas (drawing/event area) class
+(define pousse-canvas%
+  (class canvas% ; args
+    (inherit get-dc)
+;    (private dc)
+    (define dc #f)
+;      [dc #f])
+    (public draw-box do-next-action kill-robot run-player-in-background run-player refresh-controls)
+    (define lock (make-semaphore 1)) ; added to allow kill-robot to be defined as a proper method
+    (define killed? #f) ; added to allow kill-robot to be defined as a proper method
+    (define robot-stdout #f) ; added to allow kill-robot to be defined as a proper method
+    (define robot-stdin #f)
+    (define robot-stderr #f)
+    (define robot-process #f)
+    [define draw-box 
+       ; Draw a string in a box
+       (lambda (i j str)
+	 (let ([w (box 0)]
+	       [h (box 0)]
+               [desc (box 0)]
+               [space (box 0)])
+	   (set!-values (w h desc space) (send dc get-text-extent str))
+           (send dc draw-text "  "
+		 (+ (* i cell-size) (/ (- cell-size w) 2))
+		 (+ (* j cell-size) (/ (- cell-size h) 2)))
+	   (send dc draw-text str
+		 (+ (* i cell-size) (/ (- cell-size w) 2))
+		 (+ (* j cell-size) (/ (- cell-size h) 2)))))]
+     [define do-next-action
+      (lambda ()
+	;; See if anything interesting happened, then call refresh-controls (below)
+	(check-loser)
+	(check-winner)
+	(set! history (extend-history board history))
+	(refresh-controls))]
+;     [define kill-robot (lambda () #f)] ;; installed by refresh-controls
+    [define kill-robot (lambda ()
+                         (semaphore-wait lock)
+                         (when (eq? killed? 'not-yet) (set! killed? #t))
+                         (semaphore-post lock)
+                         (when killed?
+                           (close-input-port robot-stdout) ; interrupts read
+                           (subprocess-kill robot-process #t)
+                           (close-output-port robot-stdin)
+                           (close-input-port robot-stderr)))]
+    
+    [define run-player-in-background
+     ;; Lots of messy stuff for calling the OS to run a player. The
+     ;; kill-robot method is installed for killing of the player process.
+     (lambda (player)
+       ;; Start in player's directory:
+       (let-values ([(base file dir?) (split-path player)])
+         (current-directory base))
+       ;; Start the player:
+       (let-values (((robot-process robot-stdout robot-stdin robot-stderr ) (subprocess #f #f #f player)))
+         (set! lock (make-semaphore 1))
+         ;; Write board size and moves to player's stdin
+         (fprintf robot-stdin "~a~n" n)
+         (for-each (lambda (m) 
+                     (fprintf robot-stdin "~a~n" m))
+                   moves)
+         (close-output-port robot-stdin)
+         ;; Echo player's stderr to our stderr (for debugging)
+         (thread (lambda ()
+                   (let ([v (read-line robot-stderr)])
+                     (unless (eof-object? v)
+                       (fprintf (current-error-port) "From ~a:~n  ~a~n" player v)
+                       (let loop ()
+                         (let ([v (read-line robot-stderr)])
+                           (unless (eof-object? v)
+                             (fprintf (current-error-port) "  ~a~n" v)
+                             (loop))))))
+                   (close-input-port robot-stderr)))
+         (send canvas set-cursor watch-cursor)
+         ;; Wait for a response... (killing the process will cause read
+         ;; to raise an exception)
+         (let ([move (with-handlers ([void void]) (read robot-stdout))])
+           ;; Got it.. parse the response or handle kill
+           (close-input-port robot-stdout)
+           (semaphore-wait lock)
+           (when (eq? killed? 'not-yet) (set! killed? #f))
+           (semaphore-post lock)
+           (send canvas set-cursor #f)
+           (unless killed?
+             (unless (symbol? move)
+               (error 'play "weird reply: ~a" move))
+             (let* ([s (symbol->string move)]
+                    [d (char-upcase (string-ref s 0))]
+                    [p (string->number (substring s 1 (string-length s)))])
+               (unless (and (number? p) 
+                            (<= 1 p n)
+                            (memq d '(#\T #\B #\R #\L)))
+                 (error 'play "weird reply: ~a" move))
+               (case d
+                 [(#\T) (push-top! (sub1 p))]
+                 [(#\B) (push-bottom! (sub1 p))]
+                 [(#\L) (push-left! (sub1 p))]
+                 [(#\R) (push-right! (sub1 p))]))))))]
+    
+    [define run-player
+     ;; A wrapper for monitoring the program player in a MrEd thread.
+     ;; Also handle the possibility that something goes wrong.
+     (lambda (player who)
+       (send status set-label (format "~a: running ~a"
+                                      who 
+                                      ;; Extract a printable name:
+                                      (let*-values ([(base name dir?) (split-path player)]
+                                                    [(base2 name2 dir?) (split-path base)])
+                                        (robot->name (path->string name2)))))
+       (let ([s (make-semaphore)])
+         (thread (lambda () 
+                   (with-handlers ([void (lambda (exn)
+                                           (message-box "Error"
+                                                        (format
+                                                         (string-append
+                                                          "There was an error running the program player for ~a. "
+                                                          "We'll assume a default move, T1.")
+                                                         who)
+                                                        #f '(ok))
+                                           (push-top! 0))])
+                     (run-player-in-background player))
+                   (semaphore-post s)))
+         (set! playing? #t)
+         (enable-arrows)
+         ;; Handle GUI events while we wait...
+         (yield s)
+         (set! playing? #f))
+       (unless killed?
+         (send status set-label "")
+         (on-paint)
+         (do-next-action)))]
+
+     [define refresh-controls
+      ;; Update the GUI to reflect the current game state, and run
+      ;; a program player if it's time.
+      (lambda ()
+	(send history-text show-moves)
+	(send clock show (not (or winner loser review-tournament)))
+	(if (or loser winner)
+	    (begin
+	      ;; Game over
+	      (enable-arrows)
+	      (on-paint)
+	      (send status set-label
+		    (format "Game over: ~a ~a!" 
+			    (if (equal? (or winner loser) x) "X" "O")
+			    (if winner "wins" "loses")))
+	      (send clock show #f)
+	      (when print-game?
+		(for-each (lambda (m) 
+			    (printf "~a~n" m))
+			  moves)))
+	    ;; Check for automated player
+	    (let* (;[killed? 'not-yet]
+                   )
+	      ;; Run a program? Let a person play?
+	      (cond
+	       [(and (eq? current-player x) x-player) (run-player x-player "X")]
+	       [(and (eq? current-player o) o-player) (run-player o-player "O")]
+	       [else (unless (and review-tournament (null? future-state))
+		       (send status set-label (format "~a's turn~a~a"
+						      (if (eq? current-player x) "X" "O")
+						      (if review-tournament
+							  (format ", ~a"
+								  (robot->name
+								   ((if (eq? current-player x)
+									game-x
+									game-o)
+								    review-tournament)))
+							  "")
+						      (cond
+						       [auto-play " (auto-reviewing)"]
+						       [review-tournament " (click an arrow)"]
+						       [else " (click a number)"]))))
+		     (enable-arrows)]))))]
+						     
+    (override on-paint on-event)
+    [define on-paint
+      ;;;;;;;;;;;;;;;;;;;; Draw the Board ;;;;;;;;;;;;;;;;;;;;;;;
+      (lambda ()
+	(unless dc 
+	  (set! dc (get-dc))
+;	  (send dc set-background-mode 'solid)
+          (send dc set-text-mode 'solid)
+	  (send dc set-pen (make-object pen% "GRAY" 1 'solid))
+	  (send dc set-font (make-object font% font-size 'decorative 'normal 'bold)))
+	(n-times (+ n 2) (lambda (i)
+			   (when (<= 1 i (add1 n))
+			     (send dc draw-line cell-size (* i cell-size) (* (+ n 1) cell-size) (* i cell-size))
+			     (send dc draw-line (* i cell-size) cell-size (* i cell-size) (* (+ n 1) cell-size)))
+			   (when (<= 1 i n)
+			     (send dc set-text-foreground black)
+			     (n-times n (lambda (j) (let ([v (board-cell board (sub1 i) j)])
+						      (when (and (eq? winner v)
+								 (in-straight? board v (sub1 i) j))
+							(send dc set-text-foreground green))
+						      (when (eq? loser v) (send dc set-text-foreground red))
+						      (draw-box i (add1 j) (cond
+									     [(eq? v none) "  "]
+									     [(eq? v x) "x"]
+									     [(eq? v o) "o"]))
+						      (when (or (eq? winner v) (eq? loser v))
+							(send dc set-text-foreground black)))))
+			     (send dc set-text-foreground gray)
+			     (draw-box i 0 (number->string i))
+			     (draw-box 0 i (number->string i))
+			     (draw-box i (add1 n) (number->string i))
+			     (draw-box (add1 n) i (number->string i))))))]
+     ;;;;;;;;;;;;;;;;;;;; Handle Clicks ;;;;;;;;;;;;;;;;;;;;;;;
+     [define on-event (lambda (e)
+		 ;; There are a lot of reasons why you might not be allowed to click...
+		 (when (and (not winner) (not loser) (send e button-down?)
+			    (not playing?)
+			    (not review-tournament)
+			    (not (if (eq? current-player x) x-player o-player)))
+		   (let ([i (inexact->exact (floor (/ (send e get-x) cell-size)))]
+			 [j (inexact->exact (floor (/ (send e get-y) cell-size)))])
+		     (when (cond
+			    [(and (= j 0) (<= 1 i n)) (push-top! (sub1 i)) #t]
+			    [(and (= j (add1 n)) (<= 1 i n)) (push-bottom! (sub1 i)) #t]
+			    [(and (= i 0) (<= 1 j n)) (push-left! (sub1 j)) #t]
+			    [(and (= i (add1 n)) (<= 1 j n)) (push-right! (sub1 j)) #t]
+			    [else #f]) ; not on a number
+		       (on-paint)
+		       ; Check for win/loss, run automated player
+		       (do-next-action)))))]
+;    (sequence (apply super-init args))))
+    (super-new)))
+
+;; Create the GUI interface with the above pieces ;;
+
+; Instantiate the canvas in a frame (= a top-level window)
+(define frame (make-object (class frame% ; args
+			     (augment* (can-close? (lambda () quit-ok?)))
+			      ; Close the frame => exit the program
+			      ; No fancy "Quit" menus here!
+			     (augment* (on-close (lambda () (exit))))
+;			     (sequence (apply super-init args)))
+                             (super-new))
+			   "Pousse"))
+
+;; Panels are for GUI item layout (auto geometry management)
+(define h-layout-panel (make-object horizontal-panel% frame))
+(send h-layout-panel spacing 5)
+(define game-panel (make-object vertical-panel% h-layout-panel))
+(send game-panel stretchable-width #f)
+(define history-panel (make-object vertical-panel% h-layout-panel))
+
+;; Make the left and right arrow buttons
+(define button-panel (make-object horizontal-panel% game-panel))
+(send button-panel stretchable-height #f)
+(define left-panel (make-object vertical-panel% button-panel))
+(define past-button (make-object button% (make-object bitmap% "left.gif") 
+				 button-panel (lambda (b e) (past!))))
+(define future-button (make-object button% (make-object bitmap% "right.gif") 
+				   button-panel (lambda (b e) (future!))))
+(define right-panel (make-object vertical-panel% button-panel))
+(define clock (make-object message% "00:00" right-panel))
+(send left-panel min-width (send clock min-width)) ; layout trick
+(send right-panel set-alignment 'right 'bottom)
+
+(define clock-timer (make-object
+		     (class timer% ;()
+;			    (private [init 0][dinged 0])
+                            (define init 0)
+                            (define dinged 0)
+;			    (rename [super-start start])
+			    (public* [reset (lambda ()
+					     (send clock set-label "00:00")
+					     (set! dinged 0)
+					     (set! init (current-seconds)))])
+			    (override*
+			      [notify 
+			       (lambda ()
+				 (let* ([v (- (current-seconds) init)])
+				   ;; Ring bell once at 30 seconds, twice at 60 seconds
+				   (when (send clock is-shown?)
+				     (when (>= v 30)
+				       (unless (> dinged 0) (bell) (set! dinged 1))
+				       (when (>= v 60)
+					 (unless (> dinged 1) (bell) (bell) (set! dinged 2)))))
+				   (let ([v (if (>= v 3600) ; more than an hour
+						(quotient v 3600)
+						v)])
+				     (send clock set-label
+					   (format "~a~a:~a~a"
+						   (quotient v 600)
+						   (modulo (quotient v 60) 10)
+						   (quotient (modulo v 60) 10)
+						   (modulo v 10))))))]
+			      [start (lambda ()
+				       (set! init (current-seconds))
+				       (super start 1000 #f))])
+;			    (sequence (super-init)))))
+                            (super-new))))
+(send clock-timer start)
+
+;; This procedure is called to enable/disable the arrow buttons
+(define (enable-arrows)
+  (let ([ok? (lambda (state)
+	       (and ;; Not autoplaying?
+		    (not auto-play)
+		    ;; Something to rewind to?
+		    (pair? state)
+		    ;; Is it program vs. program?
+		    (not (and x-player o-player))
+		    ;; If we're playing a program, can we rewind twice?
+		    (or (not (or x-player o-player))
+			(pair? (cdr state)))))])
+    (send past-button enable (ok? past-state))
+    (send future-button enable (ok? future-state))))
+
+;; Make the status line
+(define status (make-object message% "Pousse" game-panel))
+(send status stretchable-width #t)
+
+;; Make the canvas for drawing the game board
+(define canvas (make-object pousse-canvas% game-panel))
+
+; The canvas should stretch/shrink to fit the board
+(define (set-canvas-size)
+  (send canvas min-client-width (* (+ n 2) cell-size))
+  (send canvas min-client-height (* (+ n 2) cell-size)))
+(set-canvas-size)
+(send canvas focus)
+
+; Make a text window for showing the board history to the right.
+; Uses the built-in text editor in MrEd, adding a show-moves
+; method to refresh the window after a move or rewind.
+(make-object message% "Moves" history-panel)
+(define history-canvas (make-object editor-canvas% history-panel #f '(no-hscroll)))
+(define history-text (make-object (class text% ;()
+				     (inherit begin-edit-sequence end-edit-sequence
+					      erase insert delete change-style hide-caret
+					      set-position line-start-position line-end-position)
+				     ; Ignore all user actions:
+;				     (override* [on-char (lambda () (void))] [on-event (lambda () (void))])
+				     (public*
+				       [show-moves
+					(lambda ()
+					  (begin-edit-sequence)
+					  (erase)
+					  (change-style (make-object style-delta% 'change-normal))
+					  (change-style (make-object style-delta% 'change-family 'swiss))
+					  (for-each
+					   (lambda (m) (insert m) (insert #\newline))
+					   (if (null? future-state)
+					       moves
+					       (cadr (list-ref future-state (sub1 (length future-state))))))
+					  (delete) ; delete that last newline
+					  (if (null? moves)
+					      (set-position 0)
+					      (let* ([past-move (sub1 (length moves))]
+						     [start (line-start-position past-move)])
+						(change-style (send 
+							       (make-object style-delta% 'change-bold)
+							       set-delta-foreground "BLUE")
+							      start
+							      (line-end-position past-move))
+						(set-position start)))
+					  (end-edit-sequence))])
+;				     (sequence (super-init) (hide-caret #t)))))
+                                    (super-new))))
+(send history-canvas set-editor history-text)
+
+;; Setup and miscellaneous buttons at the bottom
+
+(define misc-panel (make-object horizontal-panel% frame))
+(send misc-panel stretchable-height #f)
+
+(make-object button% "Help" misc-panel (lambda (b e) (help!! #f)))
+(make-object button% "Setup..." misc-panel (lambda (b e) (setup)))
+(make-object vertical-pane% misc-panel) ; spacer
+(make-object message% "Powered by Rice PLT" misc-panel)
+(make-object button% (make-object bitmap% "plt.gif") misc-panel (lambda (b e) (help!! #t)))
+
+;; Makes the setup dialog. Options dialogs are always a pain.
+(define (make-setup-dialog)
+  (define d (make-object dialog% "Pousse Setup" #f 300 200))
+  (define mode (make-object choice% "Mode:" 
+			    '("Play a New Game" "Review Tournament Game" "Auto-review Full Tournament")
+			    d (lambda (m e) (mode-changed))))
+  (define mode-changed (lambda () (let ([which (case (send mode get-selection)
+						 [(0) game-panel]
+						 [(1) archive-panel]
+						 [(2) autoplay-panel])])
+				    (send config-panel change-children (lambda (l) (list which)))
+				    (enable-ok))))
+  (define config-panel (make-object vertical-panel% d))
+  (define archive-panel (make-object vertical-panel% config-panel))
+  (define game-panel (make-object vertical-panel% config-panel))
+  (define autoplay-panel (make-object vertical-panel% config-panel))
+  (define archived-robots (map cadr robot-names))
+  (define (refresh-archive-list . args)
+    (let* ([x-sel (send archive-x-player get-selection)]
+	   [x-bot (and x-sel (car (list-ref robot-names x-sel)))]
+	   [o-sel (send archive-o-player get-selection)]
+	   [o-bot (and o-sel (car (list-ref robot-names o-sel)))]
+	   [l (let loop ([l archived-games])
+		(cond
+		 [(null? l) null]
+		 [(and (equal? x-bot (game-x (car l)))
+		       (equal? o-bot (game-o (car l))))
+		  (cons (car l) (loop (cdr l)))]
+		 [else (loop (cdr l))]))])
+      (send archive-list clear)
+      (send archive-message set-label (if (null? l) "No matching games" "Select a game:"))
+      (unless (null? l)
+	(for-each (lambda (g) (send archive-list append (game-desc g) g)) l)
+	(send archive-list set-selection 0))
+      (reset-archive-result)))
+  (define archive-x-player (make-object list-box% "X Player:" archived-robots archive-panel refresh-archive-list))
+  (define archive-o-player (make-object list-box% "O Player:" archived-robots archive-panel refresh-archive-list))
+  (define archive-message (make-object message% "No matching games" archive-panel))
+  (define reset-archive-result (lambda args (enable-ok)))
+  (define archive-list (make-object list-box% "Games:" null archive-panel reset-archive-result))
+  (define (make-player name)
+    (letrec ([p (make-object vertical-panel% game-panel '(border))]
+	     [m (make-object choice% (format "~a Player:" name) '("Person" "Program") p
+			     (lambda (m e) 
+			       (send l enable (positive? (send m get-selection)))
+			       (enable-ok)))]
+	     [l (make-object list-box% "Programs:" (map robot->name (map robot-name robots)) p 
+			     (lambda (l e) (enable-ok)))])
+      (send l enable #f)
+      (values m l)))
+  (define board-size (make-object slider% "Board Size:" 4 20 game-panel void n))
+  (define-values (x-kind x-robot) (make-player "X"))
+  (define-values (o-kind o-robot) (make-player "O"))
+  (define play-speed (make-object slider% "Quarter seconds per move:" 0 20 autoplay-panel void 4))
+
+  (define button-panel (make-object horizontal-pane% d))
+  (define cancel-button (make-object button% "Cancel" button-panel 
+				     (lambda (b e) (send d show #f))))
+  (define ok-button (make-object button% "Start" button-panel 
+				 ;; Callback procedure invoked when the button is hit:
+				 (lambda (b e) 
+				   (send d show #f)
+				   (send canvas kill-robot) ; in case a robot was running
+				   (case (send mode get-selection)
+				     [(0) ;; Play a game
+				      (let ([get-robot
+					     (lambda (l)
+					       (robot-executable 
+						(list-ref robots
+							  (send l get-selection))))]
+					    [size (send board-size get-value)])
+					(set! auto-play #f)
+					(if (zero? (send x-kind get-selection))
+					    (set! x-player #f) ; person player
+					    (set! x-player (get-robot x-robot)))
+					(if (zero? (send o-kind get-selection))
+					    (set! o-player #f) ; person player
+					    (set! o-player (get-robot o-robot)))
+					(reset-game size))]
+				     [(1) ;; Review a tournament game
+				      (let ([game (send archive-list get-data (send archive-list get-selection))])
+					(set! auto-play #f)
+					(set! x-player #f)
+					(set! o-player #f)
+					(load-game game))]
+				     [(2) ;; Auto-play whole tournament
+				      (set! x-player #f)
+				      (set! o-player #f)
+				      (set! auto-play (send play-speed get-value))
+				      (play-all)]))
+				 '(border)))
+
+  (define enable-ok (lambda () (send ok-button enable
+				     (or (and (= 2 (send mode get-selection))
+					      (pair? archived-games))
+					 (and (= 1 (send mode get-selection))
+					      (send archive-list get-selection))
+					 (and (zero? (send mode get-selection))
+					      (or (zero? (send x-kind get-selection))
+						  (send x-robot get-selection))
+					      (or (zero? (send o-kind get-selection))
+						  (send o-robot get-selection)))))))
+
+  (send button-panel set-alignment 'right 'center)
+  (send button-panel stretchable-height #f)
+  (mode-changed)
+  (refresh-archive-list)
+  (send archive-message stretchable-width #t)
+
+  d)
+
+(define setup-dialog (make-setup-dialog))
+
+(define (setup) (send setup-dialog show #t))
+
+;; Help or source code window:
+(define (help!! code?)
+  (define f (make-object frame% 
+			 (if code? "Pousse GUI Source Code" "Pousse Help")
+			 #f 580 300))
+  (define p (if code?
+		(void)
+		(make-object choice% #f '("Rules" "Using the GUI") f
+			     (lambda (p ev)
+			       (send e lock #f)
+			       (send e load-file
+				     (case (send p get-selection)
+				       [(0) "rules.txt"]
+				       [(1) "help.txt"]))
+			       (send e lock #t)))))
+  (define c (make-object editor-canvas% f))
+  (define e (make-object text%))
+  (send c set-editor e)
+  (send e load-file (if code? "pousse" "rules.txt"))
+  (send e lock #t)
+  (send f show #t))
+
+; Arrow buttons initially enabled?
+(enable-arrows)
+
+; Don't allowing resizing the frame. Everything fits just right.
+(send frame stretchable-width #f)
+(send frame stretchable-height #f)
+
+; Show the frame - we're off and running, now!
+(send frame show #t)
+
+; Take the first action.
+(send canvas do-next-action)
+
+; Loop forever (handling events). Frame's on-close callback method will exit.
+;;(yield (make-semaphore 0))
+(yield 'wait)
+
