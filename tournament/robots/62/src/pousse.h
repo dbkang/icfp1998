@@ -15,6 +15,7 @@ public:
   int rank;
   PousseMove(std::string move);
   PousseMove(DIRECTION d, int r): direction(d), rank(r) {};
+  std::string toString() const;
 };
 
 class PousseBoard {
@@ -24,13 +25,14 @@ public:
   std::vector<bool> boardX;
   std::vector<bool> boardO;
   PousseBoard (int d, bool t, std::vector<bool> bX, std::vector<bool> bO):
-    dimension(d), turn(t), boardX(bX), boardO(bO) {};
-  PousseBoard move(PousseMove m);
-  std::unique_ptr<std::vector<PousseMove> > moves();
-  SQUARE_STATE at(int x, int y);
-  int rawIndex(int x, int y);
-  int calcX(int x, int offset, DIRECTION d);
-  int calcY(int y, int offset, DIRECTION d);
+  dimension(d), turn(t), boardX(bX), boardO(bO) {};
+  PousseBoard (int d);
+  PousseBoard move(PousseMove m) const;
+  std::unique_ptr<std::vector<PousseMove> > moves() const;
+  SQUARE_STATE at(int x, int y) const;
+  int rawIndex(int x, int y) const;
+  int calcX(int x, int offset, DIRECTION d) const;
+  int calcY(int y, int offset, DIRECTION d) const;
 };
 
 #endif

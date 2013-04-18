@@ -14,7 +14,7 @@ GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
                 $(GTEST_DIR)/include/gtest/internal/*.h
 
 all: $(BIN_DIR)/main test
-
+	./pousse_unittest
 
 $(BIN_DIR)/main : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/main.o $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/main $(OBJ_DIR)/main.o $(OBJ_DIR)/pousse.o
@@ -48,8 +48,6 @@ pousse_unittest.o : $(TEST_DIR)/pousse_unittest.cc \
 
 pousse_unittest : $(OBJ_DIR)/pousse.o pousse_unittest.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ -lpthread
-
-
 
 
 # Builds gtest.a and gtest_main.a.
