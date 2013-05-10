@@ -42,7 +42,7 @@ PousseBoard::PousseBoard (int d) {
 
 std::unique_ptr<std::vector<PousseMove> > PousseBoard::moves() const {
   std::unique_ptr<std::vector<PousseMove> > result(new std::vector<PousseMove>());
-  for (int i = 0; i < dimension; i++) {
+  for (int i = 1; i <= dimension; i++) {
     result->push_back(PousseMove(TOP, i));
     result->push_back(PousseMove(BOTTOM, i));
     result->push_back(PousseMove(LEFT, i));
@@ -77,7 +77,7 @@ int PousseBoard::calcY(int y, int offset, DIRECTION d) const {
   else return y - offset;
 }
 
-PousseBoard PousseBoard::move(PousseMove m) const {
+PousseBoard PousseBoard::makeMove(PousseMove m) const {
   PousseBoard copy(dimension, !turn, boardX, boardO);
   int x, y, count = 0;
   if (m.direction == TOP || m.direction == BOTTOM) {
@@ -118,3 +118,7 @@ PousseBoard PousseBoard::move(PousseMove m) const {
   if (turn) copy.boardX[raw] = true; else copy.boardO[raw] = true;
   return copy;
 }
+
+
+// TODO: Full game state including history.  End of game conditions.
+

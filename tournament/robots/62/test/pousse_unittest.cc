@@ -1,5 +1,6 @@
 #include "pousse.h"
 #include "gtest/gtest.h"
+#include <algorithm>
 
 TEST(PousseMove, PousseMoveFromString) {
   const PousseMove move1("T14");
@@ -35,8 +36,8 @@ TEST(PousseBoard, PousseBoardEmptyConstructor) {
   const PousseBoard board(10);
   EXPECT_EQ(board.turn, true);
   EXPECT_EQ(board.dimension, 10);
-  EXPECT_EQ(board.boardX.size(), 100);
-  EXPECT_EQ(board.boardO.size(), 100);
+  EXPECT_EQ(board.boardX.size(), 100UL);
+  EXPECT_EQ(board.boardO.size(), 100UL);
   EXPECT_EQ(board.boardX, std::vector<bool>(100, false));
   EXPECT_EQ(board.boardO, std::vector<bool>(100, false));
 }
@@ -45,6 +46,20 @@ TEST(PousseBoard, PousseBoardEmptyConstructor) {
 TEST(PousseBoard, PousseBoardMoves) {
   const PousseBoard board(12);
   const std::unique_ptr<std::vector<PousseMove> > moves = board.moves();
+
+  EXPECT_EQ(moves->size(), 48UL);
+  EXPECT_NE(std::find(moves->begin(), moves->end(), PousseMove("T8")), moves->end());
+  EXPECT_NE(std::find(moves->begin(), moves->end(), PousseMove("T12")), moves->end());
+  EXPECT_NE(std::find(moves->begin(), moves->end(), PousseMove("B1")), moves->end());
+  EXPECT_NE(std::find(moves->begin(), moves->end(), PousseMove("B7")), moves->end());
+  EXPECT_NE(std::find(moves->begin(), moves->end(), PousseMove("L5")), moves->end());
+  EXPECT_NE(std::find(moves->begin(), moves->end(), PousseMove("L3")), moves->end());
+
+  EXPECT_EQ(std::find(moves->begin(), moves->end(), PousseMove("T13")), moves->end());
+  EXPECT_EQ(std::find(moves->begin(), moves->end(), PousseMove("T0")), moves->end());
 }
 
 
+TEST(PousseBoard, PousseBoardMakeMove) {
+
+}
