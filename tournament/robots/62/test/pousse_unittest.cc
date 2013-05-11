@@ -63,12 +63,22 @@ TEST(PousseBoard, PousseBoardMoves) {
 TEST(PousseBoard, PousseBoardMakeMove) {
   const PousseBoard board(4);
   const PousseMove move1("T3");
+  const PousseMove move2("R2");
   const PousseBoard board1 = board.makeMove(move1);
   const PousseBoard board2 = board1.makeMove(move1);
   const PousseBoard board3 = board2.makeMove(move1);
   const PousseBoard board4 = board3.makeMove(move1);
   const PousseBoard board5 = board4.makeMove(move1);
-  const PousseBoard board6 = board5.makeMove(move1);
+
+  const PousseBoard board6 = board5.makeMove(move1); // should be same as board4
+
+  // fork from board5
+  const PousseBoard board7 = board5.makeMove(move2);
+  const PousseBoard board8 = board7.makeMove(move2);
+  const PousseBoard board9 = board8.makeMove(move2);
+  const PousseBoard board10 = board9.makeMove(move2);
+  const PousseBoard board11 = board10.makeMove(move2);
+  const PousseBoard board12 = board11.makeMove(move2);
 
   std::vector<bool> teamX(16, false);
   std::vector<bool> teamO(16, false);
@@ -124,4 +134,63 @@ TEST(PousseBoard, PousseBoardMakeMove) {
 
   EXPECT_EQ(teamX, board5.boardX);
   EXPECT_EQ(teamO, board5.boardO);
+
+  teamO[7] = true;
+
+  EXPECT_EQ(teamX, board7.boardX);
+  EXPECT_EQ(teamO, board7.boardO);
+
+  //board7 now looks like
+  //..X.
+  //..OO
+  //..X.
+  //..O.
+
+  teamX[7] = true;
+  teamO[7] = false;
+  teamO[5] = true;
+  teamO[6] = true;
+  teamX[6] = false;
+
+  EXPECT_EQ(teamX, board8.boardX);
+  EXPECT_EQ(teamO, board8.boardO);
+
+  teamO[4] = true;
+  teamX[6] = true;
+  teamO[6] = false;
+  teamX[7] = false;
+  teamO[7] = true;
+  
+  EXPECT_EQ(teamX, board9.boardX);
+  EXPECT_EQ(teamO, board9.boardO);
+
+  //board9 now looks like
+  //..X.
+  //OOXO
+  //..X.
+  //..O.
+
+  teamX[5] = true;
+  teamO[5] = false;
+  teamX[6] = false;
+  teamO[6] = true;
+  teamX[7] = true;
+  teamO[7] = false;
+
+  EXPECT_EQ(teamX, board10.boardX);
+  EXPECT_EQ(teamO, board10.boardO);
+  EXPECT_EQ(teamX, board12.boardX);
+  EXPECT_EQ(teamO, board12.boardO);
+
+  teamX[4] = true;
+  teamO[4] = false;
+  teamX[5] = false;
+  teamO[5] = true;
+  teamX[6] = true;
+  teamO[6] = false;
+  teamX[7] = false;
+  teamO[7] = true;
+
+  EXPECT_EQ(teamX, board11.boardX);
+  EXPECT_EQ(teamO, board11.boardO);
 }
