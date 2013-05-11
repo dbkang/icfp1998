@@ -1,4 +1,5 @@
 #include "pousse.h"
+#include <iostream>
 
 PousseMove::PousseMove(std::string move)  {
   direction = TOP;
@@ -92,30 +93,36 @@ PousseBoard PousseBoard::makeMove(PousseMove m) const {
   }
   while (x >= 1 && x <= dimension && y >= 1 && y <= dimension && at(x, y) != EMPTY) {
     x = calcX(x, 1, m.direction);
-    y = calcY(x, 1, m.direction);
+    y = calcY(y, 1, m.direction);
     count++;
   }
 
   if (count == dimension) {
     count--;
     x = calcX(x, -1, m.direction);
-    y = calcY(x, -1, m.direction);
+    y = calcY(y, -1, m.direction);
   }
-
   // the little one said roll over
   int raw;
   while (count--) {
     int rawOld = rawIndex(x, y);
     x = calcX(x, -1, m.direction);
-    y = calcX(y, -1, m.direction);
+    y = calcY(y, -1, m.direction);
     raw = rawIndex(x, y);
-    
     copy.boardX[rawOld] = copy.boardX[raw];
     copy.boardO[rawOld] = copy.boardO[raw];
   }
   raw = rawIndex(x, y);
 
-  if (turn) copy.boardX[raw] = true; else copy.boardO[raw] = true;
+  if (turn) {
+    copy.boardX[raw] = true;
+    copy.boardO[raw] = false;
+  }
+  else {
+    copy.boardO[raw] = true;
+    copy.boardX[raw] = false;
+  }
+    
   return copy;
 }
 
