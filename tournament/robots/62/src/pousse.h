@@ -8,6 +8,7 @@
 
 enum DIRECTION { TOP, BOTTOM, LEFT, RIGHT };
 enum SQUARE_STATE { EMPTY, OCCUPIED_X, OCCUPIED_O };
+enum GAME_STATE { IN_PROGRESS, X_WINS, O_WINS };
 
 class PousseMove {
 public:
@@ -22,6 +23,8 @@ public:
 };
 
 class PousseBoard {
+private:
+  int straightCount(std::vector<bool> board) const;
 public:
   int dimension;
   bool turn; // true is X's turn; false is O's turn
@@ -36,6 +39,19 @@ public:
   int rawIndex(int x, int y) const;
   int calcX(int x, int offset, DIRECTION d) const;
   int calcY(int y, int offset, DIRECTION d) const;
+  int straightCountX() const;
+  int straightCountO() const;
+  bool operator== (const PousseBoard& other) const {
+    return turn == other.turn && boardX == other.boardX && boardO == other.boardO;
+  }
+};
+
+class PousseGame {
+public:
+  PousseGame(int d) : history(std::vector<PousseBoard>(1, PousseBoard(d))) { };
+  std::vector<PousseBoard> history;
+  void makeMove(PousseMove m);
+  GAME_STATE result();
 };
 
 #endif

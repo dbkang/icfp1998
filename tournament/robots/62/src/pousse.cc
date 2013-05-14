@@ -78,6 +78,31 @@ int PousseBoard::calcY(int y, int offset, DIRECTION d) const {
   else return y - offset;
 }
 
+int PousseBoard::straightCount(std::vector<bool> board) const {
+  int count = 0;
+  for (int x = 1; x <= dimension; x++) {
+    for (int y = 1; y <= dimension; y++) {
+      if (!board[rawIndex(x, y)]) break;
+      if (y == dimension) count++;
+    }
+  }
+  for (int y = 1; y <= dimension; y++) {
+    for (int x = 1; x <= dimension; x++) {
+      if (!board[rawIndex(x, y)]) break;
+      if (x == dimension) count++;
+    }
+  }
+  return count;
+}
+
+int PousseBoard::straightCountX() const {
+  return straightCount(boardX);
+}
+
+int PousseBoard::straightCountO() const {
+  return straightCount(boardO);
+}
+
 PousseBoard PousseBoard::makeMove(PousseMove m) const {
   PousseBoard copy(dimension, !turn, boardX, boardO);
   int x, y, count = 0;
@@ -126,6 +151,25 @@ PousseBoard PousseBoard::makeMove(PousseMove m) const {
   return copy;
 }
 
+
+void PousseGame::makeMove(PousseMove move) {
+  history.push_back(history.back().makeMove(move));
+}
+
+GAME_STATE PousseGame::result() {
+  for (std::vector<PousseBoard>::reverse_iterator it = ++(history.rbegin()); it != history.rend(); ++it) {
+    if (history.back() == *it) {
+      if (history.back().turn) return X_WINS; else return O_WINS;
+    }
+  }
+
+  int xCount = history.back().straightCountX();
+  int oCount = history.back().straightCountO();
+
+  if (xCount > oCount) return X_WINS;
+  else if (oCount > xCount) return O_WINS;
+  else return IN_PROGRESS;
+}
 
 // TODO: Full game state including history.  End of game conditions.
 
