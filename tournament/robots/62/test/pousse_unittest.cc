@@ -194,3 +194,104 @@ TEST(PousseBoard, PousseBoardMakeMove) {
   EXPECT_EQ(teamX, board11.boardX);
   EXPECT_EQ(teamO, board11.boardO);
 }
+
+
+TEST(PousseGame, PousseGameMakeMoveUndo) {
+  PousseGame game(5);
+  game.makeMove(PousseMove("T3"));
+  game.makeMove(PousseMove("L1"));
+  game.makeMove(PousseMove("R4"));
+  game.makeMove(PousseMove("T1"));
+  game.makeMove(PousseMove("T1"));
+
+  EXPECT_EQ(6UL, game.history.size());
+
+  std::vector<bool> teamX(25, false);
+  std::vector<bool> teamO(25, false);
+
+  EXPECT_EQ(teamX, game.history[0].boardX);
+  EXPECT_EQ(teamO, game.history[0].boardO);
+
+  teamX[2] = true;
+
+  EXPECT_EQ(teamX, game.history[1].boardX);
+  EXPECT_EQ(teamO, game.history[1].boardO);
+
+  teamO[0] = true;
+
+  EXPECT_EQ(teamX, game.history[2].boardX);
+  EXPECT_EQ(teamO, game.history[2].boardO);
+
+  teamX[19] = true;
+
+  EXPECT_EQ(teamX, game.history[3].boardX);
+  EXPECT_EQ(teamO, game.history[3].boardO);
+
+
+  teamO[5] = true;
+
+  EXPECT_EQ(teamX, game.history[4].boardX);
+  EXPECT_EQ(teamO, game.history[4].boardO);
+
+  game.undo();
+
+  EXPECT_EQ(5UL, game.history.size());
+
+  EXPECT_EQ(teamX, game.history[4].boardX);
+  EXPECT_EQ(teamO, game.history[4].boardO);
+
+}
+
+
+TEST(PousseGame, PousseGameResult) {
+  PousseGame game(4);
+  game.makeMove(PousseMove("T1"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("B4"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("T1"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("B4"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("T1"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("B4"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("T1"));
+  EXPECT_EQ(X_WINS, game.result());
+  game.makeMove(PousseMove("B4"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+
+  // board at this point
+  // X..O
+  // X..O
+  // X..O
+  // X..O
+
+  game.makeMove(PousseMove("T3"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("R3"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("L2"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("R3"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("L2"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("R3"));
+  EXPECT_EQ(O_WINS, game.result());
+  game.makeMove(PousseMove("L2"));
+  EXPECT_EQ(IN_PROGRESS, game.result());
+
+  // board at this point
+  // X.XO
+  // XXXX
+  // OOOO
+  // X..O
+
+  game.makeMove(PousseMove("R3")); // not repeat because of different turn!
+  EXPECT_EQ(IN_PROGRESS, game.result());
+  game.makeMove(PousseMove("L2")); // this is repeat, committed by X.
+  EXPECT_EQ(O_WINS, game.result());
+
+}

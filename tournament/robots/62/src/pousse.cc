@@ -156,8 +156,13 @@ void PousseGame::makeMove(PousseMove move) {
   history.push_back(history.back().makeMove(move));
 }
 
-GAME_STATE PousseGame::result() {
-  for (std::vector<PousseBoard>::reverse_iterator it = ++(history.rbegin()); it != history.rend(); ++it) {
+void PousseGame::undo() {
+  history.pop_back();
+}
+
+GAME_STATE PousseGame::result() const {
+  for (std::vector<PousseBoard>::const_reverse_iterator it = ++(history.crbegin());
+       it != history.crend(); ++it) {
     if (history.back() == *it) {
       if (history.back().turn) return X_WINS; else return O_WINS;
     }
@@ -171,5 +176,4 @@ GAME_STATE PousseGame::result() {
   else return IN_PROGRESS;
 }
 
-// TODO: Full game state including history.  End of game conditions.
 

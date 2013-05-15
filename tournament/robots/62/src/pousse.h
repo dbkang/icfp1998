@@ -51,7 +51,8 @@ public:
   PousseGame(int d) : history(std::vector<PousseBoard>(1, PousseBoard(d))) { };
   std::vector<PousseBoard> history;
   void makeMove(PousseMove m);
-  GAME_STATE result();
+  void undo();
+  GAME_STATE result() const;
 };
 
 #endif
