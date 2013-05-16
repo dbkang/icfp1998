@@ -1,4 +1,5 @@
 #include "pousse.h"
+#include "eval.h"
 #include "gtest/gtest.h"
 #include <algorithm>
 
@@ -288,10 +289,13 @@ TEST(PousseGame, PousseGameResult) {
   // XXXX
   // OOOO
   // X..O
+  std::cout << boardValue(game.board(true), 4) << std::endl;
+  std::cout << boardValue(game.board(false), 4) << std::endl;
 
   game.makeMove(PousseMove("R3")); // not repeat because of different turn!
   EXPECT_EQ(IN_PROGRESS, game.result());
   game.makeMove(PousseMove("L2")); // this is repeat, committed by X.
   EXPECT_EQ(O_WINS, game.result());
+
 
 }

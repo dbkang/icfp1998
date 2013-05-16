@@ -13,17 +13,20 @@ TESTS = $(BIN_DIR)/pousse_unittest
 GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
                 $(GTEST_DIR)/include/gtest/internal/*.h
 
-all: $(BIN_DIR)/main test
+all: $(BIN_DIR) $(BIN_DIR)/main test
 	$(BIN_DIR)/pousse_unittest
 
-$(BIN_DIR)/main : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/main.o $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/main $(OBJ_DIR)/main.o $(OBJ_DIR)/pousse.o
+$(BIN_DIR)/main : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/main.o $(OBJ_DIR)/eval.o
+	$(CXX) $(CXXFLAGS) $^ -o $@ 
 
 $(OBJ_DIR)/main.o : $(SRC_DIR)/main.cc $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/main.cc
 
 $(OBJ_DIR)/pousse.o : $(SRC_DIR)/pousse.cc $(SRC_DIR)/pousse.h $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/pousse.cc
+
+$(OBJ_DIR)/eval.o : $(SRC_DIR)/eval.cc $(SRC_DIR)/eval.h $(SRC_DIR)/pousse.h $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/eval.cc
 
 $(OBJ_DIR):
 	mkdir $(OBJ_DIR)
@@ -42,10 +45,10 @@ test : $(TESTS)
 # function.
 
 $(OBJ_DIR)/pousse_unittest.o : $(TEST_DIR)/pousse_unittest.cc \
-                     $(SRC_DIR)/pousse.h #$(GTEST_HEADERS)
+                     $(SRC_DIR)/pousse.h $(SRC_DIR)/eval.h #$(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TEST_DIR)/pousse_unittest.cc -o $@
 
-$(BIN_DIR)/pousse_unittest : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/pousse_unittest.o $(OBJ_DIR)/gtest_main.a
+$(BIN_DIR)/pousse_unittest : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/pousse_unittest.o $(OBJ_DIR)/gtest_main.a $(OBJ_DIR)/eval.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ -lpthread
 
 

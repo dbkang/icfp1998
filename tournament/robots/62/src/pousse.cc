@@ -1,6 +1,10 @@
 #include "pousse.h"
 #include <iostream>
 
+int calcRawIndex(int dimension, int x, int y) {
+  return (y-1) * dimension + (x-1);
+}
+
 PousseMove::PousseMove(std::string move)  {
   direction = TOP;
   rank = 0;
@@ -53,11 +57,11 @@ std::unique_ptr<std::vector<PousseMove> > PousseBoard::moves() const {
 }
 
 int PousseBoard::rawIndex(int x, int y) const {
-  return (y-1) * dimension + (x-1);
+  return calcRawIndex(dimension, x, y);
 }
 
 // note 1-based numbering
-SQUARE_STATE PousseBoard::at(int x, int y) const {
+SquareState PousseBoard::at(int x, int y) const {
   int raw = rawIndex(x, y);
   return boardX[raw] ? OCCUPIED_X :
     boardO[raw] ? OCCUPIED_O :
@@ -65,14 +69,14 @@ SQUARE_STATE PousseBoard::at(int x, int y) const {
 }
 
 
-int PousseBoard::calcX(int x, int offset, DIRECTION d) const {
+int PousseBoard::calcX(int x, int offset, Direction d) const {
   if (d == TOP || d == BOTTOM) return x;
   else if (d == LEFT) return x + offset;
   else return x - offset;
 }
 
 
-int PousseBoard::calcY(int y, int offset, DIRECTION d) const {
+int PousseBoard::calcY(int y, int offset, Direction d) const {
   if (d == LEFT || d == RIGHT) return y;
   else if (d == TOP) return y + offset;
   else return y - offset;
@@ -160,7 +164,7 @@ void PousseGame::undo() {
   history.pop_back();
 }
 
-GAME_STATE PousseGame::result() const {
+GameState PousseGame::result() const {
   for (std::vector<PousseBoard>::const_reverse_iterator it = ++(history.crbegin());
        it != history.crend(); ++it) {
     if (history.back() == *it) {
@@ -177,3 +181,11 @@ GAME_STATE PousseGame::result() const {
 }
 
 
+std::vector<bool> PousseGame::board(bool x) const {
+  if (x) return history.back().boardX;
+  else return history.back().boardO;
+}
+
+bool PousseGame::turn() const {
+  return history.back().turn;
+}

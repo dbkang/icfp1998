@@ -6,16 +6,18 @@
 #include <cstdlib>
 #include <memory>
 
-enum DIRECTION { TOP, BOTTOM, LEFT, RIGHT };
-enum SQUARE_STATE { EMPTY, OCCUPIED_X, OCCUPIED_O };
-enum GAME_STATE { IN_PROGRESS, X_WINS, O_WINS };
+enum Direction { TOP, BOTTOM, LEFT, RIGHT };
+enum SquareState { EMPTY, OCCUPIED_X, OCCUPIED_O };
+enum GameState { IN_PROGRESS, X_WINS, O_WINS };
+
+int calcRawIndex(int dimension, int x, int y);
 
 class PousseMove {
 public:
-  DIRECTION direction;
+  Direction direction;
   int rank;
   PousseMove(std::string move);
-  PousseMove(DIRECTION d, int r): direction(d), rank(r) {};
+  PousseMove(Direction d, int r): direction(d), rank(r) {};
   std::string toString() const;
   bool operator== (const PousseMove& other) const {
     return direction == other.direction && rank == other.rank;
@@ -35,10 +37,10 @@ public:
   PousseBoard (int d);
   PousseBoard makeMove(PousseMove m) const;
   std::unique_ptr<std::vector<PousseMove> > moves() const;
-  SQUARE_STATE at(int x, int y) const;
+  SquareState at(int x, int y) const;
   int rawIndex(int x, int y) const;
-  int calcX(int x, int offset, DIRECTION d) const;
-  int calcY(int y, int offset, DIRECTION d) const;
+  int calcX(int x, int offset, Direction d) const;
+  int calcY(int y, int offset, Direction d) const;
   int straightCountX() const;
   int straightCountO() const;
   bool operator== (const PousseBoard& other) const {
@@ -48,11 +50,14 @@ public:
 
 class PousseGame {
 public:
-  PousseGame(int d) : history(std::vector<PousseBoard>(1, PousseBoard(d))) { };
+  int dimension;
+  PousseGame(int d) : dimension(d), history(std::vector<PousseBoard>(1, PousseBoard(d))) { };
   std::vector<PousseBoard> history;
   void makeMove(PousseMove m);
   void undo();
-  GAME_STATE result() const;
+  GameState result() const;
+  std::vector<bool> board(bool x) const;
+  bool turn() const;
 };
 
 #endif
