@@ -16,7 +16,7 @@ GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
 all: $(BIN_DIR) $(BIN_DIR)/main test
 	$(BIN_DIR)/pousse_unittest
 
-$(BIN_DIR)/main : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/main.o $(OBJ_DIR)/eval.o
+$(BIN_DIR)/main : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/main.o $(OBJ_DIR)/eval.o $(OBJ_DIR)/search.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ 
 
 $(OBJ_DIR)/main.o : $(SRC_DIR)/main.cc $(OBJ_DIR)
@@ -27,6 +27,9 @@ $(OBJ_DIR)/pousse.o : $(SRC_DIR)/pousse.cc $(SRC_DIR)/pousse.h $(OBJ_DIR)
 
 $(OBJ_DIR)/eval.o : $(SRC_DIR)/eval.cc $(SRC_DIR)/eval.h $(SRC_DIR)/pousse.h $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/eval.cc
+
+$(OBJ_DIR)/search.o : $(SRC_DIR)/search.cc $(SRC_DIR)/eval.h $(SRC_DIR)/pousse.h $(SRC_DIR)/search.h $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/search.cc
 
 $(OBJ_DIR):
 	mkdir $(OBJ_DIR)

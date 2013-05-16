@@ -193,3 +193,25 @@ std::vector<bool> PousseGame::board(Player p) const {
 Player PousseGame::turn() const {
   return history.back().turn;
 }
+
+PousseBoard PousseGame::currentBoard() const {
+  return history.back();
+}
+
+std::unique_ptr<std::vector<PousseMove> > PousseGame::moves() const {
+  return history.back().moves();
+}
+
+std::string PousseGame::toString() const {
+  std::string result = "";
+  for (int x = 1; x <= dimension; x++) {
+    for (int y = 1; y <= dimension; y++) {
+      SquareState sq = history.back().at(x, y);
+      if (sq == OCCUPIED_X) result += "X";
+      else if (sq == OCCUPIED_O) result += "O";
+      else result += ".";
+    }
+    result += "\n";
+  }
+  return result;
+}

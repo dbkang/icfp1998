@@ -60,6 +60,9 @@ public:
   GameState result() const;
   std::vector<bool> board(Player p) const;
   Player turn() const;
+  PousseBoard currentBoard() const;
+  std::unique_ptr<std::vector<PousseMove> > moves() const;
+  std::string toString() const;
 };
 
 #endif
