@@ -9,7 +9,9 @@
 enum Direction { TOP, BOTTOM, LEFT, RIGHT };
 enum SquareState { EMPTY, OCCUPIED_X, OCCUPIED_O };
 enum GameState { IN_PROGRESS, X_WINS, O_WINS };
+enum Player { PLAYER_X, PLAYER_O };
 
+Player opposite(Player p);
 int calcRawIndex(int dimension, int x, int y);
 
 class PousseMove {
@@ -29,10 +31,10 @@ private:
   int straightCount(std::vector<bool> board) const;
 public:
   int dimension;
-  bool turn; // true is X's turn; false is O's turn
+  Player turn;
   std::vector<bool> boardX;
   std::vector<bool> boardO;
-  PousseBoard (int d, bool t, std::vector<bool> bX, std::vector<bool> bO):
+  PousseBoard (int d, Player t, std::vector<bool> bX, std::vector<bool> bO):
   dimension(d), turn(t), boardX(bX), boardO(bO) {};
   PousseBoard (int d);
   PousseBoard makeMove(PousseMove m) const;
@@ -56,8 +58,8 @@ public:
   void makeMove(PousseMove m);
   void undo();
   GameState result() const;
-  std::vector<bool> board(bool x) const;
-  bool turn() const;
+  std::vector<bool> board(Player p) const;
+  Player turn() const;
 };
 
 #endif

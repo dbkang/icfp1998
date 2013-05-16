@@ -35,7 +35,7 @@ TEST(PousseMove, PousseMoveToString) {
 
 TEST(PousseBoard, PousseBoardEmptyConstructor) {
   const PousseBoard board(10);
-  EXPECT_EQ(true, board.turn);
+  EXPECT_EQ(PLAYER_X, board.turn);
   EXPECT_EQ(10, board.dimension);
   EXPECT_EQ(100UL, board.boardX.size());
   EXPECT_EQ(100UL, board.boardO.size());
@@ -86,13 +86,13 @@ TEST(PousseBoard, PousseBoardMakeMove) {
 
   EXPECT_EQ(teamX, board.boardX);
   EXPECT_EQ(teamO, board.boardO);
-  EXPECT_EQ(true, board.turn);
+  EXPECT_EQ(PLAYER_X, board.turn);
 
   teamX[2] = true;
 
   EXPECT_EQ(teamX, board1.boardX);
   EXPECT_EQ(teamO, board1.boardO);
-  EXPECT_EQ(false, board1.turn);
+  EXPECT_EQ(PLAYER_O, board1.turn);
 
   teamO[2] = true;
   teamX[2] = false;
@@ -244,7 +244,7 @@ TEST(PousseGame, PousseGameMakeMoveUndo) {
 }
 
 
-TEST(PousseGame, PousseGameResult) {
+TEST(PousseGameAndEval, PousseGameResultAndEval) {
   PousseGame game(4);
   game.makeMove(PousseMove("T1"));
   EXPECT_EQ(IN_PROGRESS, game.result());
@@ -260,6 +260,10 @@ TEST(PousseGame, PousseGameResult) {
   EXPECT_EQ(IN_PROGRESS, game.result());
   game.makeMove(PousseMove("T1"));
   EXPECT_EQ(X_WINS, game.result());
+
+  EXPECT_EQ(POUSSE_WIN, eval(game, PLAYER_X));
+  EXPECT_EQ(POUSSE_LOSS, eval(game, PLAYER_O));
+
   game.makeMove(PousseMove("B4"));
   EXPECT_EQ(IN_PROGRESS, game.result());
 
@@ -281,21 +285,34 @@ TEST(PousseGame, PousseGameResult) {
   EXPECT_EQ(IN_PROGRESS, game.result());
   game.makeMove(PousseMove("R3"));
   EXPECT_EQ(O_WINS, game.result());
+  EXPECT_EQ(POUSSE_WIN, eval(game, PLAYER_O));
+  EXPECT_EQ(POUSSE_LOSS, eval(game, PLAYER_X));
   game.makeMove(PousseMove("L2"));
   EXPECT_EQ(IN_PROGRESS, game.result());
+
 
   // board at this point
   // X.XO
   // XXXX
   // OOOO
   // X..O
-  std::cout << boardValue(game.board(true), 4) << std::endl;
-  std::cout << boardValue(game.board(false), 4) << std::endl;
+
+  //std::cout << boardValue(game.board(PLAYER_X), 4) << std::endl;
+  //std::cout << boardValue(game.board(PLAYER_O), 4) << std::endl;
+  //std::cout << eval(game, PLAYER_X) << std::endl;
 
   game.makeMove(PousseMove("R3")); // not repeat because of different turn!
   EXPECT_EQ(IN_PROGRESS, game.result());
+  EXPECT_NE(POUSSE_WIN, eval(game, PLAYER_O));
+  EXPECT_NE(POUSSE_LOSS, eval(game, PLAYER_X));
+  EXPECT_NE(POUSSE_WIN, eval(game, PLAYER_X));
+  EXPECT_NE(POUSSE_LOSS, eval(game, PLAYER_O));
+
+
   game.makeMove(PousseMove("L2")); // this is repeat, committed by X.
   EXPECT_EQ(O_WINS, game.result());
 
+  EXPECT_EQ(POUSSE_WIN, eval(game, PLAYER_O));
+  EXPECT_EQ(POUSSE_LOSS, eval(game, PLAYER_X));
 
 }

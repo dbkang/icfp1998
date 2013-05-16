@@ -1,6 +1,10 @@
 #include "pousse.h"
 #include <iostream>
 
+Player opposite(Player p) {
+  return p == PLAYER_X ? PLAYER_O : PLAYER_X;
+}
+
 int calcRawIndex(int dimension, int x, int y) {
   return (y-1) * dimension + (x-1);
 }
@@ -39,7 +43,7 @@ std::string PousseMove::toString() const {
 
 PousseBoard::PousseBoard (int d) {
   dimension = d;
-  turn = true;
+  turn = PLAYER_X;
   boardX.resize(d * d, false);
   boardO.resize(d * d, false);
 }
@@ -108,7 +112,7 @@ int PousseBoard::straightCountO() const {
 }
 
 PousseBoard PousseBoard::makeMove(PousseMove m) const {
-  PousseBoard copy(dimension, !turn, boardX, boardO);
+  PousseBoard copy(dimension, opposite(turn), boardX, boardO);
   int x, y, count = 0;
   if (m.direction == TOP || m.direction == BOTTOM) {
     x = m.rank;
@@ -143,7 +147,7 @@ PousseBoard PousseBoard::makeMove(PousseMove m) const {
   }
   raw = rawIndex(x, y);
 
-  if (turn) {
+  if (turn == PLAYER_X) {
     copy.boardX[raw] = true;
     copy.boardO[raw] = false;
   }
@@ -168,7 +172,7 @@ GameState PousseGame::result() const {
   for (std::vector<PousseBoard>::const_reverse_iterator it = ++(history.crbegin());
        it != history.crend(); ++it) {
     if (history.back() == *it) {
-      if (history.back().turn) return X_WINS; else return O_WINS;
+      if (history.back().turn == PLAYER_X) return X_WINS; else return O_WINS;
     }
   }
 
@@ -181,11 +185,11 @@ GameState PousseGame::result() const {
 }
 
 
-std::vector<bool> PousseGame::board(bool x) const {
-  if (x) return history.back().boardX;
+std::vector<bool> PousseGame::board(Player p) const {
+  if (p == PLAYER_X) return history.back().boardX;
   else return history.back().boardO;
 }
 
-bool PousseGame::turn() const {
+Player PousseGame::turn() const {
   return history.back().turn;
 }
