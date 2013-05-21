@@ -162,10 +162,12 @@ PousseBoard PousseBoard::makeMove(PousseMove m) const {
 
 void PousseGame::makeMove(PousseMove move) {
   history.push_back(history.back().makeMove(move));
+  moveHistory.push_back(move);
 }
 
 void PousseGame::undo() {
   history.pop_back();
+  moveHistory.pop_back();
 }
 
 GameState PousseGame::result() const {
@@ -212,6 +214,15 @@ std::string PousseGame::toString() const {
       else result += ".";
     }
     result += "\n";
+  }
+  return result;
+}
+
+std::string PousseGame::movesToString(std::string separator) const {
+  std::string result;
+  for (std::vector<PousseMove>::const_iterator it = moveHistory.begin(); it != moveHistory.end(); ++it) {
+    if (it != moveHistory.begin()) result += separator;
+    result += it->toString();
   }
   return result;
 }

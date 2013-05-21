@@ -53,8 +53,10 @@ public:
 class PousseGame {
 public:
   int dimension;
-  PousseGame(int d) : dimension(d), history(std::vector<PousseBoard>(1, PousseBoard(d))) { };
   std::vector<PousseBoard> history;
+  std::vector<PousseMove> moveHistory;
+
+  PousseGame(int d) : dimension(d), history(std::vector<PousseBoard>(1, PousseBoard(d))) { };
   void makeMove(PousseMove m);
   void undo();
   GameState result() const;
@@ -63,6 +65,7 @@ public:
   PousseBoard currentBoard() const;
   std::unique_ptr<std::vector<PousseMove> > moves() const;
   std::string toString() const;
+  std::string movesToString(std::string separator = "") const;
 };
 
 #endif

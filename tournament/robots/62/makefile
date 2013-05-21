@@ -19,7 +19,7 @@ all: $(BIN_DIR) $(BIN_DIR)/main test
 $(BIN_DIR)/main : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/main.o $(OBJ_DIR)/eval.o $(OBJ_DIR)/search.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ 
 
-$(OBJ_DIR)/main.o : $(SRC_DIR)/main.cc $(OBJ_DIR)
+$(OBJ_DIR)/main.o : $(SRC_DIR)/main.cc $(SRC_DIR)/pousse.h $(SRC_DIR)/search.h $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/main.cc
 
 $(OBJ_DIR)/pousse.o : $(SRC_DIR)/pousse.cc $(SRC_DIR)/pousse.h $(OBJ_DIR)
