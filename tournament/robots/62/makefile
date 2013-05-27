@@ -5,7 +5,7 @@ CXX := clang++
 GTEST_DIR = gtest-1.6.0
 TEST_DIR = test
 CPPFLAGS = -I$(GTEST_DIR)/include -I$(SRC_DIR)
-CXXFLAGS = -std=c++11 -g -Wall -Wextra
+CXXFLAGS = -std=c++11 -stdlib=libc++ -g -Wall -Wextra
 TESTS = $(BIN_DIR)/pousse_unittest
 
 # All Google Test headers.  Usually you shouldn't change this

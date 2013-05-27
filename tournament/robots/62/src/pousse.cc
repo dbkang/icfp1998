@@ -9,7 +9,7 @@ int calcRawIndex(int dimension, int x, int y) {
   return (y-1) * dimension + (x-1);
 }
 
-PousseMove::PousseMove(std::string move)  {
+PousseMove::PousseMove(const std::string& move)  {
   direction = TOP;
   rank = 0;
   if (move.length() > 0) {

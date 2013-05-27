@@ -7,6 +7,8 @@
 
 std::unordered_map<std::string, int> searchResult;
 int count;
+const int MIN_SORT_DEPTH = 2;
+const int MIN_HASH_DEPTH = 2;
 
 class MoveCompare {
 public:
@@ -48,12 +50,12 @@ int alphabeta(PousseGame& game, int depth, int alpha, int beta, Player player, s
   else {
     MoveCompare compare(game, false);
     std::unique_ptr<std::vector<PousseMove> > moves = game.moves();
-    if (depth > 1) std::sort(moves->begin(), moves->end(), compare);
+    if (depth >= MIN_SORT_DEPTH) std::sort(moves->begin(), moves->end(), compare);
     for (std::vector<PousseMove>::iterator it = moves->begin(); it != moves->end(); ++it) {
       std::vector<PousseMove> potentialPV;
       game.makeMove(*it);
       int value = -alphabeta(game, depth - 1, -beta, -alpha, opposite(player), potentialPV);
-      if (depth > 1) {
+      if (depth >= MIN_HASH_DEPTH) {
         searchResult[game.movesToString()] = value;
       }
       game.undo();
@@ -79,7 +81,4 @@ int searchEval(PousseGame& game, int depth, Player player, std::vector<PousseMov
   return value;
 }
 
-// TODO
-// sane move ordering
-// hashtable
-// iterative deepening
+
