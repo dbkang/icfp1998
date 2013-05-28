@@ -6,6 +6,11 @@ GTEST_DIR = gtest-1.6.0
 TEST_DIR = test
 CPPFLAGS = -I$(GTEST_DIR)/include -I$(SRC_DIR)
 CXXFLAGS = -std=c++11 -stdlib=libc++ -g -Wall -Wextra
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	CXXFLAGS = -std=c++11 -DDISABLE_MARKS_CRAZINESS=1 -g -Wall -Wextra
+endif
+
 TESTS = $(BIN_DIR)/pousse_unittest
 
 # All Google Test headers.  Usually you shouldn't change this
@@ -13,17 +18,23 @@ TESTS = $(BIN_DIR)/pousse_unittest
 GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
                 $(GTEST_DIR)/include/gtest/internal/*.h
 
-all: $(BIN_DIR)/main test
+all: $(BIN_DIR) $(BIN_DIR)/main test
 	$(BIN_DIR)/pousse_unittest
 
-$(BIN_DIR)/main : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/main.o $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/main $(OBJ_DIR)/main.o $(OBJ_DIR)/pousse.o
+$(BIN_DIR)/main : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/main.o $(OBJ_DIR)/eval.o $(OBJ_DIR)/search.o
+	$(CXX) $(CXXFLAGS) $^ -o $@ 
 
-$(OBJ_DIR)/main.o : $(SRC_DIR)/main.cc $(OBJ_DIR)
+$(OBJ_DIR)/main.o : $(SRC_DIR)/main.cc $(SRC_DIR)/pousse.h $(SRC_DIR)/search.h $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/main.cc
 
 $(OBJ_DIR)/pousse.o : $(SRC_DIR)/pousse.cc $(SRC_DIR)/pousse.h $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/pousse.cc
+
+$(OBJ_DIR)/eval.o : $(SRC_DIR)/eval.cc $(SRC_DIR)/eval.h $(SRC_DIR)/pousse.h $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/eval.cc
+
+$(OBJ_DIR)/search.o : $(SRC_DIR)/search.cc $(SRC_DIR)/eval.h $(SRC_DIR)/pousse.h $(SRC_DIR)/search.h $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -o $@ -c $(SRC_DIR)/search.cc
 
 $(OBJ_DIR):
 	mkdir $(OBJ_DIR)
@@ -42,10 +53,10 @@ test : $(TESTS)
 # function.
 
 $(OBJ_DIR)/pousse_unittest.o : $(TEST_DIR)/pousse_unittest.cc \
-                     $(SRC_DIR)/pousse.h #$(GTEST_HEADERS)
+                     $(SRC_DIR)/pousse.h $(SRC_DIR)/eval.h #$(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TEST_DIR)/pousse_unittest.cc -o $@
 
-$(BIN_DIR)/pousse_unittest : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/pousse_unittest.o $(OBJ_DIR)/gtest_main.a
+$(BIN_DIR)/pousse_unittest : $(OBJ_DIR)/pousse.o $(OBJ_DIR)/pousse_unittest.o $(OBJ_DIR)/gtest_main.a $(OBJ_DIR)/eval.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ -lpthread
 
 

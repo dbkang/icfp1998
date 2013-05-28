@@ -1,6 +1,14 @@
 #include "pousse.h"
 #include <iostream>
 
+Player opposite(Player p) {
+  return p == PLAYER_X ? PLAYER_O : PLAYER_X;
+}
+
+int calcRawIndex(int dimension, int x, int y) {
+  return (y-1) * dimension + (x-1);
+}
+
 PousseMove::PousseMove(const std::string& move)  {
   direction = TOP;
   rank = 0;
@@ -35,7 +43,7 @@ std::string PousseMove::toString() const {
 
 PousseBoard::PousseBoard (int d) {
   dimension = d;
-  turn = true;
+  turn = PLAYER_X;
   boardX.resize(d * d, false);
   boardO.resize(d * d, false);
 }
@@ -53,11 +61,11 @@ std::unique_ptr<std::vector<PousseMove> > PousseBoard::moves() const {
 }
 
 int PousseBoard::rawIndex(int x, int y) const {
-  return (y-1) * dimension + (x-1);
+  return calcRawIndex(dimension, x, y);
 }
 
 // note 1-based numbering
-SQUARE_STATE PousseBoard::at(int x, int y) const {
+SquareState PousseBoard::at(int x, int y) const {
   int raw = rawIndex(x, y);
   return boardX[raw] ? OCCUPIED_X :
     boardO[raw] ? OCCUPIED_O :
@@ -65,21 +73,46 @@ SQUARE_STATE PousseBoard::at(int x, int y) const {
 }
 
 
-int PousseBoard::calcX(int x, int offset, DIRECTION d) const {
+int PousseBoard::calcX(int x, int offset, Direction d) const {
   if (d == TOP || d == BOTTOM) return x;
   else if (d == LEFT) return x + offset;
   else return x - offset;
 }
 
 
-int PousseBoard::calcY(int y, int offset, DIRECTION d) const {
+int PousseBoard::calcY(int y, int offset, Direction d) const {
   if (d == LEFT || d == RIGHT) return y;
   else if (d == TOP) return y + offset;
   else return y - offset;
 }
 
+int PousseBoard::straightCount(std::vector<bool> board) const {
+  int count = 0;
+  for (int x = 1; x <= dimension; x++) {
+    for (int y = 1; y <= dimension; y++) {
+      if (!board[rawIndex(x, y)]) break;
+      if (y == dimension) count++;
+    }
+  }
+  for (int y = 1; y <= dimension; y++) {
+    for (int x = 1; x <= dimension; x++) {
+      if (!board[rawIndex(x, y)]) break;
+      if (x == dimension) count++;
+    }
+  }
+  return count;
+}
+
+int PousseBoard::straightCountX() const {
+  return straightCount(boardX);
+}
+
+int PousseBoard::straightCountO() const {
+  return straightCount(boardO);
+}
+
 PousseBoard PousseBoard::makeMove(PousseMove m) const {
-  PousseBoard copy(dimension, !turn, boardX, boardO);
+  PousseBoard copy(dimension, opposite(turn), boardX, boardO);
   int x, y, count = 0;
   if (m.direction == TOP || m.direction == BOTTOM) {
     x = m.rank;
@@ -114,7 +147,7 @@ PousseBoard PousseBoard::makeMove(PousseMove m) const {
   }
   raw = rawIndex(x, y);
 
-  if (turn) {
+  if (turn == PLAYER_X) {
     copy.boardX[raw] = true;
     copy.boardO[raw] = false;
   }
@@ -127,5 +160,69 @@ PousseBoard PousseBoard::makeMove(PousseMove m) const {
 }
 
 
-// TODO: Full game state including history.  End of game conditions.
+void PousseGame::makeMove(PousseMove move) {
+  history.push_back(history.back().makeMove(move));
+  moveHistory.push_back(move);
+}
 
+void PousseGame::undo() {
+  history.pop_back();
+  moveHistory.pop_back();
+}
+
+GameState PousseGame::result() const {
+  for (std::vector<PousseBoard>::const_reverse_iterator it = ++(history.crbegin());
+       it != history.crend(); ++it) {
+    if (history.back() == *it) {
+      if (history.back().turn == PLAYER_X) return X_WINS; else return O_WINS;
+    }
+  }
+
+  int xCount = history.back().straightCountX();
+  int oCount = history.back().straightCountO();
+
+  if (xCount > oCount) return X_WINS;
+  else if (oCount > xCount) return O_WINS;
+  else return IN_PROGRESS;
+}
+
+
+std::vector<bool> PousseGame::board(Player p) const {
+  if (p == PLAYER_X) return history.back().boardX;
+  else return history.back().boardO;
+}
+
+Player PousseGame::turn() const {
+  return history.back().turn;
+}
+
+PousseBoard PousseGame::currentBoard() const {
+  return history.back();
+}
+
+std::unique_ptr<std::vector<PousseMove> > PousseGame::moves() const {
+  return history.back().moves();
+}
+
+std::string PousseGame::toString() const {
+  std::string result = "";
+  for (int x = 1; x <= dimension; x++) {
+    for (int y = 1; y <= dimension; y++) {
+      SquareState sq = history.back().at(x, y);
+      if (sq == OCCUPIED_X) result += "X";
+      else if (sq == OCCUPIED_O) result += "O";
+      else result += ".";
+    }
+    result += "\n";
+  }
+  return result;
+}
+
+std::string PousseGame::movesToString(std::string separator) const {
+  std::string result;
+  for (std::vector<PousseMove>::const_iterator it = moveHistory.begin(); it != moveHistory.end(); ++it) {
+    if (it != moveHistory.begin()) result += separator;
+    result += it->toString();
+  }
+  return result;
+}
