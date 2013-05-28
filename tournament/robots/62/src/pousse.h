@@ -13,7 +13,7 @@ class PousseMove {
 public:
   DIRECTION direction;
   int rank;
-  PousseMove(std::string move);
+  PousseMove(const std::string& move);
   PousseMove(DIRECTION d, int r): direction(d), rank(r) {};
   std::string toString() const;
   bool operator== (const PousseMove& other) const {

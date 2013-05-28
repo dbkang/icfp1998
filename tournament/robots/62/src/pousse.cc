@@ -1,7 +1,7 @@
 #include "pousse.h"
 #include <iostream>
 
-PousseMove::PousseMove(std::string move)  {
+PousseMove::PousseMove(const std::string& move)  {
   direction = TOP;
   rank = 0;
   if (move.length() > 0) {
