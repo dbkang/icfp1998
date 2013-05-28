@@ -6,6 +6,11 @@ GTEST_DIR = gtest-1.6.0
 TEST_DIR = test
 CPPFLAGS = -I$(GTEST_DIR)/include -I$(SRC_DIR)
 CXXFLAGS = -std=c++11 -stdlib=libc++ -g -Wall -Wextra
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	CXXFLAGS = -std=c++11 -DDISABLE_MARKS_CRAZINESS=1 -g -Wall -Wextra
+endif
+
 TESTS = $(BIN_DIR)/pousse_unittest
 
 # All Google Test headers.  Usually you shouldn't change this

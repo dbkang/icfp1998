@@ -495,8 +495,9 @@
 #   include <tr1/tuple>
 #   undef _TR1_FUNCTIONAL  // Allows the user to #include
                         // <tr1/functional> if he chooses to.
+#  elif DISABLE_MARKS_CRAZINESS
+#   include <tr1/tuple>  // NOLINT
 #  else
-//#   include <tr1/tuple>  // NOLINT
 namespace std {
     namespace tr1 {
         using ::std::get;
